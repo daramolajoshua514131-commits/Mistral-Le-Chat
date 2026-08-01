@@ -16,38 +16,21 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Load environment variables
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
-# Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
-
-# System prompt defining the AI assistant's multi-functional capabilities
+# System prompt defining the AI assistant's capabilities
 SYSTEM_PROMPT = """
 You are a helpful, versatile, and highly intelligent Telegram AI assistant.
-Your capabilities include:
-- Chatting & answering questions
-- Writing essays, emails, stories, and code
-- Summarizing text provided by the user
-- Translating text across languages
-- Brainstorming creative ideas
-- Assisting with everyday personal & work tasks
-Be clear, accurate, and concise. Use markdown formatting where appropriate.
+Your capabilities include chatting, answering questions, writing, summarizing, 
+translating, and brainstorming. Be clear, accurate, and concise.
 """
+
+# Declare client globally, initialized inside main
+client = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends a welcome message on /start."""
     welcome_text = (
         "👋 **Hello! I am your AI Assistant.**\n\n"
-        "I can help you with:\n"
-        "• 💬 **Chatting & Answering Questions**\n"
-        "• ✍️ **Writing & Drafting** (Emails, Posts, Essays)\n"
-        "• 📝 **Summarizing** long texts or articles\n"
-        "• 🌐 **Translating** between languages\n"
-        "• 💡 **Brainstorming** ideas & problem solving\n"
-        "• 🛠️ **Everyday assistance**\n\n"
-        "Just send me a message or prompt to get started!"
+        "Send me a message to start chatting, translating, writing, or summarizing!"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
@@ -55,12 +38,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processes user text through OpenAI's API."""
     user_input = update.message.text
     
-    # Indicate typing state while processing
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Fast and cost-effective model
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_input},
@@ -77,11 +59,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 if __name__ == "__main__":
-    if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
-        raise ValueError("Missing TELEGRAM_BOT_TOKEN or OPENAI_API_KEY environment variables.")
+    telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    openai_key = os.environ.get("OPENAI_API_KEY")
 
-    # Build and start telegram bot
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    # Validate environment variables before initializing SDKs
+    if not telegram_token:
+        raise ValueError("Missing TELEGRAM_BOT_TOKEN environment variable in Railway.")
+    if not openai_key:
+        raise ValueError("Missing OPENAI_API_KEY environment variable in Railway.")
+
+    # Initialize client after key verification
+    client = OpenAI(api_key=openai_key)
+
+    # Build and start Telegram bot
+    app = ApplicationBuilder().token(telegram_token).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
