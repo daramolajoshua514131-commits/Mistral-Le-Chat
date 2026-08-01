@@ -1,5 +1,6 @@
 import os
 import logging
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,20 +11,21 @@ from telegram.ext import (
 )
 from openai import OpenAI
 
+# Load local .env file if present
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
-# System prompt defining the AI assistant's capabilities
 SYSTEM_PROMPT = """
 You are a helpful, versatile, and highly intelligent Telegram AI assistant.
 Your capabilities include chatting, answering questions, writing, summarizing, 
 translating, and brainstorming. Be clear, accurate, and concise.
 """
 
-# Declare client globally, initialized inside main
 client = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,16 +61,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 if __name__ == "__main__":
-    telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    # Fetch environment variables and strip surrounding whitespace/quotes
+    raw_telegram = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    raw_openai = os.environ.get("OPENAI_API_KEY", "")
 
-    # Validate environment variables before initializing SDKs
+    telegram_token = raw_telegram.strip().strip("'\"")
+    openai_key = raw_openai.strip().strip("'\"")
+
+    # Diagnostic logging for Railway environment debugging
+    print(f"[DEBUG] TELEGRAM_BOT_TOKEN set: {bool(telegram_token)}")
+    print(f"[DEBUG] OPENAI_API_KEY set: {bool(openai_key)}")
+
     if not telegram_token:
-        raise ValueError("Missing TELEGRAM_BOT_TOKEN environment variable in Railway.")
-    if not openai_key:
-        raise ValueError("Missing OPENAI_API_KEY environment variable in Railway.")
+        logging.critical("❌ Error: TELEGRAM_BOT_TOKEN variable is not set in Environment Variables.")
+        exit(1)
 
-    # Initialize client after key verification
+    if not openai_key:
+        logging.critical("❌ Error: OPENAI_API_KEY variable is not set in Environment Variables.")
+        exit(1)
+
+    # Initialize OpenAI client with sanitized key
     client = OpenAI(api_key=openai_key)
 
     # Build and start Telegram bot
@@ -77,5 +89,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Bot is up and running...")
+    print("🚀 Bot is up and running...")
     app.run_polling(drop_pending_updates=True)
